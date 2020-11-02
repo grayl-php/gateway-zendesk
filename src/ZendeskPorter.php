@@ -3,6 +3,8 @@
    namespace Grayl\Gateway\Zendesk;
 
    use Grayl\Gateway\Common\GatewayPorterAbstract;
+   use Grayl\Gateway\Zendesk\Config\ZendeskAPIEndpoint;
+   use Grayl\Gateway\Zendesk\Config\ZendeskConfig;
    use Grayl\Gateway\Zendesk\Controller\ZendeskUpsertUserRequestController;
    use Grayl\Gateway\Zendesk\Entity\ZendeskGatewayData;
    use Grayl\Gateway\Zendesk\Entity\ZendeskUpsertUserRequestData;
@@ -14,7 +16,7 @@
 
    /**
     * Front-end for the Zendesk package
-    * @method ZendeskGatewayData getSavedGatewayDataEntity ( string $endpoint_id )
+    * @method ZendeskGatewayData getSavedGatewayDataEntity ( string $api_endpoint_id )
     *
     * @package Grayl\Gateway\Zendesk
     */
@@ -29,27 +31,34 @@
        *
        * @var string
        */
-      protected string $config_file = 'gateway.zendesk.php';
+      protected string $config_file = 'gateway-zendesk.php';
+
+      /**
+       * The ZendeskConfig instance for this gateway
+       *
+       * @var ZendeskConfig
+       */
+      protected $config;
 
 
       /**
        * Creates a new Zendesk object for use in a ZendeskGatewayData entity
        *
-       * @param array $credentials An array containing all of the credentials needed to create the gateway API
+       * @param ZendeskAPIEndpoint $api_endpoint A ZendeskAPIEndpoint with credentials needed to create a gateway API object
        *
        * @return ZendeskAPI
        * @throws \Exception
        */
-      public function newGatewayAPI ( array $credentials ): object
+      public function newGatewayAPI ( $api_endpoint ): object
       {
 
          // Create the API
-         $api = new ZendeskAPI( $credentials[ 'subdomain' ] );
+         $api = new ZendeskAPI( $api_endpoint->getSubdomain() );
 
          // Set additional config fields
          $api->setAuth( 'basic',
-                        [ 'username' => $credentials[ 'username' ],
-                          'token'    => $credentials[ 'token' ], ] );
+                        [ 'username' => $api_endpoint->getUsername(),
+                          'token'    => $api_endpoint->getToken(), ] );
 
          // Return the new API entity
          return $api;
@@ -59,21 +68,21 @@
       /**
        * Creates a new ZendeskGatewayData entity
        *
-       * @param string $endpoint_id The API endpoint ID to use (typically "default" is there is only one API gateway)
+       * @param string $api_endpoint_id The API endpoint ID to use (typically "default" if there is only one API gateway)
        *
        * @return ZendeskGatewayData
        * @throws \Exception
        */
-      public function newGatewayDataEntity ( string $endpoint_id ): object
+      public function newGatewayDataEntity ( string $api_endpoint_id ): object
       {
 
          // Grab the gateway service
          $service = new ZendeskGatewayService();
 
-         // Get an API
-         $api = $this->newGatewayAPI( $service->getAPICredentials( $this->config,
-                                                                   $this->environment,
-                                                                   $endpoint_id ) );
+         // Get a new API
+         $api = $this->newGatewayAPI( $service->getAPIEndpoint( $this->config,
+                                                                $this->environment,
+                                                                $api_endpoint_id ) );
 
          // Configure the API as needed using the service
          $service->configureAPI( $api,
@@ -81,7 +90,7 @@
 
          // Return the gateway
          return new ZendeskGatewayData( $api,
-                                        $this->config->getConfig( 'name' ),
+                                        $this->config->getGatewayName(),
                                         $this->environment );
       }
 
